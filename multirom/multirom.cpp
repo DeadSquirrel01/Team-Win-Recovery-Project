@@ -7,6 +7,11 @@
 #include <linux/xattr.h>
 #include <sys/xattr.h>
 #include <sys/vfs.h>
+#include <mntent.h>
+
+#include <string>
+#include <vector>
+#include <sstream>
 
 // clone libbootimg to /system/extras/ from
 // https://github.com/Tasssadar/libbootimg.git
@@ -33,11 +38,12 @@
 #include "../openrecoveryscript.hpp"
 #include "../fuse_sideload.h"
 #include "../gui/blanktimer.hpp"
+#include "../twrpDigest/twrpMD5.hpp"
 #include "multiromedify.h"
+#include "Process.h"
 
 extern "C" {
 #include "../twcommon.h"
-#include "../digest/md5.h"
 #include "multirom_hooks.h"
 }
 
@@ -851,6 +857,7 @@ bool MultiROM::changeMounts(std::string name)
 		m_path.clear();
 		PartitionManager.Pop_Context();
 		PartitionManager.Update_System_Details();
+		rmdir(REALDATA);
 		TWFunc::Toggle_MTP(mtp_was_enabled);
 		return false;
 	}
@@ -861,6 +868,7 @@ bool MultiROM::changeMounts(std::string name)
 		m_path.clear();
 		PartitionManager.Pop_Context();
 		PartitionManager.Update_System_Details();
+		rmdir(REALDATA);
 		TWFunc::Toggle_MTP(mtp_was_enabled);
 		return false;
 	}
@@ -884,6 +892,7 @@ bool MultiROM::changeMounts(std::string name)
 		gui_print("Failed to mount realdata, canceling!\n");
 		PartitionManager.Pop_Context();
 		PartitionManager.Update_System_Details();
+		rmdir(REALDATA);
 		TWFunc::Toggle_MTP(mtp_was_enabled);
 		return false;
 	}
@@ -919,9 +928,8 @@ bool MultiROM::changeMounts(std::string name)
 		DataManager::SetValue("tw_storage_path", path);
 	}
 
+	PartitionManager.Update_System_Details();
 	PartitionManager.Output_Partition_Logging();
-	PartitionManager.Update_Storage_Sizes();
-	PartitionManager.Write_Fstab();
 
 	if(!data->Mount(true) || !sys->Mount(true) || !cache->Mount(true))
 	{
@@ -932,12 +940,10 @@ bool MultiROM::changeMounts(std::string name)
 		realdata->UnMount(false);
 		PartitionManager.Pop_Context();
 		PartitionManager.Update_System_Details();
+		rmdir(REALDATA);
 		TWFunc::Toggle_MTP(mtp_was_enabled);
 		return false;
 	}
-
-	// We really don't want scripts to be able to write to real partitions
-	//system("mv /sbin/umount /sbin/umount.bak"); // this should be handled by multiromedify.cpp
 
 	// SuperSU tries *very* hard to mount /data and /system, even looks through
 	// recovery.fstab and manages to mount the real /system
@@ -951,6 +957,32 @@ bool MultiROM::changeMounts(std::string name)
 	system("cp -a /sbin/umount_shim.sh /sbin/umount");
 
 	return true;
+}
+
+static int KillProcessesUsingPath(const std::string& path) {
+	const char* cpath = path.c_str();
+	if (Process::killProcessesWithOpenFiles(cpath, SIGINT) == 0) {
+		return 0;
+	}
+	sleep(5);
+
+	if (Process::killProcessesWithOpenFiles(cpath, SIGTERM) == 0) {
+		return 0;
+	}
+	sleep(5);
+
+	if (Process::killProcessesWithOpenFiles(cpath, SIGKILL) == 0) {
+		return 0;
+	}
+	sleep(5);
+
+	// Send SIGKILL a second time to determine if we've
+	// actually killed everyone with open files
+	if (Process::killProcessesWithOpenFiles(cpath, SIGKILL) == 0) {
+		return 0;
+	}
+	LOGERR("Failed to kill processes using %s\n", cpath);
+	return -EBUSY;
 }
 
 void MultiROM::restoreMounts()
@@ -967,44 +999,132 @@ void MultiROM::restoreMounts()
 		DataManager::SetValue("tw_storage_path", path);
 	}
 
-	//system("mv /sbin/umount.bak /sbin/umount");
 	system("mv /etc/recovery.fstab.bak /etc/recovery.fstab");
 	system("if [ -e /sbin/mount_real ]; then mv /sbin/mount_real /sbin/mount; fi;");
 	system("if [ -e /sbin/umount_real ]; then mv /sbin/umount_real /sbin/umount; fi;");
 
-	// various versions of 'systemless root' and/or installer scripts keep the unmount, but keep the loop device, so get rid of it first
-	system("sync;"
-		"i=0;"
-		"while [ $i -le 10 ]; do"
-		"    if [ -e \"/dev/block/loop$i\" ]; then"
-		"        losetup -d  \"/dev/block/loop$i\";"
-		"    fi;"
-		"    i=$(( $i + 1 ));"
-		"done;");
+	sync();
+
+	std::string list_loop_devices;
+	std::stringstream ss;
+	std::string line;
+	int rc;
+	int i;
+
+	// Disassociate and unmount 'leftover' loop mounts (su, magisk, etc.)
+	list_loop_devices.clear();
+	TWFunc::Exec_Cmd("losetup -a 2>/dev/null", list_loop_devices);
+	ss << list_loop_devices;
+	while (getline(ss, line)) {
+		size_t pos = line.find_first_of(':');
+		if (pos == std::string::npos)
+			continue;
+
+		std::string loop_dev = line.substr(0, pos);
+		std::string base_name = TWFunc::Get_Filename(line);
+		if (base_name != "boot.img" && base_name != "cache.img" && base_name != "system.img" && base_name != "data.img") {
+			FILE *f;
+			struct mntent *ent;
+
+			f = setmntent("/proc/mounts", "r");
+			if (!f) {
+				LOGERR("Couldn't open /proc/mounts\n");
+			} else {
+				while ((ent = getmntent(f))) {
+					if (loop_dev == ent->mnt_fsname) {
+						LOGINFO("Loop device %s (%s) is still mounted on %s!\n", loop_dev.c_str(), base_name.c_str(), ent->mnt_dir);
+						rc = KillProcessesUsingPath(ent->mnt_dir);
+						LOGINFO("KillProcessesUsingPath %s (rc=%d)\n", ent->mnt_dir, rc);
+						rc = umount(ent->mnt_dir);
+						LOGINFO("Unmounting %s (rc=%d)\n", ent->mnt_dir, rc);
+					}
+				}
+				endmntent(f);
+			}
+			rc = TWFunc::Exec_Cmd("losetup " + loop_dev + " 2>/dev/null; if [ $? == 0 ]; then losetup -d " + loop_dev + "; fi");
+			LOGINFO("Releasing %s (%s) (rc=%d)\n", loop_dev.c_str(), base_name.c_str(), rc);
+		}
+	}
+
+	sync();
+
+	// Is this really needed and entirely safe
+	rc = KillProcessesUsingPath("/cache");
+	LOGINFO("KillProcessesUsingPath /cache (rc=%d)\n", rc);
+	KillProcessesUsingPath("/system");
+	LOGINFO("KillProcessesUsingPath /system (rc=%d)\n", rc);
+	KillProcessesUsingPath("/data");
+	LOGINFO("KillProcessesUsingPath /data (rc=%d)\n", rc);
+	KillProcessesUsingPath("/realdata");
+	LOGINFO("KillProcessesUsingPath /realdata (rc=%d)\n", rc);
+
+	sync();
 
 	// script might have mounted it several times over, we _have_ to umount it all
-	system("sync;"
-		"i=0;"
-		"while"
-		"  [ -n \"$(grep -e /data -e /system -e /realdata -e /cache -e /sdcard /etc/mtab)\" ] &&"
-		"  [ $i -le 10 ];"
-		"do"
-		"    i=$(( $i + 1 ));"
-		"    umount -d /system /data /cache /sdcard /realdata;"
-		"done;"
-		"i=0;"
-		"while [ $i -le 10 ]; do"
-		"    if [ -e \"/dev/block/loop$i\" ]; then"
-		"        losetup -d  \"/dev/block/loop$i\";"
-		"    fi;"
-		"    i=$(( $i + 1 ));"
-		"done;");
+	// Note to self: ^^ really? why? and can't we just loop each partition or do we
+	//               have to loop through all of them?
+	int mounted_count = 0;
+	for (i = 0; i < 10; ++i) {
+		mounted_count = 0;
+
+		if (PartitionManager.Is_Mounted_By_Path("/cache")) {
+			mounted_count++;
+			rc = PartitionManager.UnMount_By_Path("/cache", false);
+			LOGINFO("Unmounting /cache (rc=%d)\n", rc);
+		}
+		if (PartitionManager.Is_Mounted_By_Path("/system")) {
+			mounted_count++;
+			rc = PartitionManager.UnMount_By_Path("/system", false);
+			LOGINFO("Unmounting /system (rc=%d)\n", rc);
+		}
+		if (PartitionManager.Is_Mounted_By_Path("/data")) {
+			mounted_count++;
+			rc = PartitionManager.UnMount_By_Path("/data", false);
+			LOGINFO("Unmounting /data (rc=%d)\n", rc);
+		}
+
+		if (mounted_count == 0)
+			break;
+	}
+
+	if (mounted_count == 0) {
+		if (PartitionManager.Is_Mounted_By_Path("/realdata")) {
+			mounted_count++;
+			rc = PartitionManager.UnMount_By_Path("/realdata", false);
+			LOGINFO("Unmounting /realdata (rc=%d)\n", rc);
+		}
+	} else {
+		// One of the fake partitions couldn't be unmounted so restoring
+		// /realdata is likely to cause problems.
+		// Instead keep using /realdata and inform user to reboot to recovery for
+		// further flashing.
+	}
+
+
+	// Disassociate any remaining loop mounts
+	list_loop_devices.clear();
+	TWFunc::Exec_Cmd("losetup -a 2>/dev/null", list_loop_devices);
+	ss << list_loop_devices;
+	while (getline(ss, line)) {
+		size_t pos = line.find_first_of(':');
+		if (pos == std::string::npos)
+			continue;
+
+		std::string loop_dev = line.substr(0, pos);
+		std::string base_name = TWFunc::Get_Filename(line);
+		rc = TWFunc::Exec_Cmd("losetup -d " + loop_dev);
+		LOGINFO("Releasing %s (%s) rc=%d\n", loop_dev.c_str(), base_name.c_str(), rc);
+	}
+
+	rmdir(REALDATA);
 
 	PartitionManager.Pop_Context();
 	PartitionManager.Update_System_Details();
 
 	PartitionManager.Mount_By_Path("/data", true);
 	PartitionManager.Mount_By_Path("/cache", true);
+
+	PartitionManager.Output_Partition_Logging();
 
 	if(DataManager::GetStrValue(TW_INTERNAL_PATH).find("/realdata/media") == 0)
 	{
@@ -1202,6 +1322,7 @@ bool MultiROM::flashZip(std::string rom, std::string file)
 	bool restore_script = false;
 	EdifyHacker hacker;
 	std::string boot, sysimg, loop_device;
+	DIR *dp_keep_busy[3] = { NULL, NULL, NULL };
 	TWPartition *data, *sys;
 
 	gui_print("Flashing ZIP file %s\n", file.c_str());
@@ -1244,9 +1365,17 @@ bool MultiROM::flashZip(std::string rom, std::string file)
 	// Installer, it will take over the screen and buttons and we won't be able to manually wake the screen
 	blankTimer.resetTimerAndUnblank();
 
+	dp_keep_busy[0] = opendir("/cache");
+	dp_keep_busy[1] = opendir("/system");
+	dp_keep_busy[2] = opendir("/data");
+
 	DataManager::SetValue(TW_SIGNED_ZIP_VERIFY_VAR, 0);
 	status = TWinstall_zip(file.c_str(), &wipe_cache);
 	DataManager::SetValue(TW_SIGNED_ZIP_VERIFY_VAR, verify_status);
+
+	if (dp_keep_busy[0]) closedir(dp_keep_busy[0]);
+	if (dp_keep_busy[1]) closedir(dp_keep_busy[1]);
+	if (dp_keep_busy[2]) closedir(dp_keep_busy[2]);
 
 	if((hacker.getProcessFlags() & EDIFY_BLOCK_UPDATES) && system_args("busybox umount -d /tmpsystem") != 0)
 		system_args("dev=\"$(losetup | grep 'system\\.img' | grep -o '/.*:')\"; losetup -d \"${dev%%:}\"");
@@ -1290,6 +1419,7 @@ bool MultiROM::flashORSZip(std::string file, int *wipe_cache)
 	int status, verify_status = 0;
 	EdifyHacker hacker;
 	bool restore_script = false;
+	DIR *dp_keep_busy[3] = { NULL, NULL, NULL };
 
 	gui_print("Flashing ZIP file %s\n", file.c_str());
 
@@ -1309,9 +1439,17 @@ bool MultiROM::flashORSZip(std::string file, int *wipe_cache)
 
 	blankTimer.resetTimerAndUnblank(); // same as above (about AROMA Installer)
 
+	dp_keep_busy[0] = opendir("/cache");
+	dp_keep_busy[1] = opendir("/system");
+	dp_keep_busy[2] = opendir("/data");
+
 	DataManager::SetValue(TW_SIGNED_ZIP_VERIFY_VAR, 0);
 	status = TWinstall_zip(file.c_str(), wipe_cache);
 	DataManager::SetValue(TW_SIGNED_ZIP_VERIFY_VAR, verify_status);
+
+	if (dp_keep_busy[0]) closedir(dp_keep_busy[0]);
+	if (dp_keep_busy[1]) closedir(dp_keep_busy[1]);
+	if (dp_keep_busy[2]) closedir(dp_keep_busy[2]);
 
 	if(hacker.getProcessFlags() & EDIFY_BLOCK_UPDATES)
 	{
@@ -2447,7 +2585,7 @@ bool MultiROM::installFromBackup(std::string name, std::string path, int type)
 
 	PartitionManager.Set_Restore_Files(path); // Restore_Name is the same as path
 
-	DataManager::SetValue(TW_SKIP_MD5_CHECK_VAR, 0);
+	DataManager::SetValue(TW_SKIP_DIGEST_CHECK_VAR, 0);
 
 	// tw_restore_selected (aka Restore_List) used by Run_Restore has the format = '/boot;/cache;/system;/data;/recovery;'
 	if (!has_data)
@@ -2853,27 +2991,15 @@ bool MultiROM::fakeBootPartition(const char *fakeImg)
 
 	system_args("echo '%s' > /tmp/mrom_fakebootpart", m_boot_dev.c_str());
 	system_args("mv \"%s\" \"%s-orig\"", m_boot_dev.c_str(), m_boot_dev.c_str());
+
 	#ifndef BOARD_BOOTIMAGE_PARTITION_SIZE
 	system_args("ln -s \"%s\" \"%s\"", fakeImg, m_boot_dev.c_str());
 
 	#else
 
 	#define BOOTIMG_LOOP_MINOR 222   // just chose 222 randomly
-	int major = 7;                   // MAJOR = grep loop /proc/devices
+	int major = 7;                   // MAJOR = grep loop /proc/devices (it's always 7)
 	int minor = BOOTIMG_LOOP_MINOR;  // MINOR = non-existent /dev/block/loopN
-
-	std::string tmp;
-	if(TWFunc::Exec_Cmd("grep loop /proc/devices", tmp) != 0)
-	{
-		major = 0;
-		LOGERR("Failed to find MAJOR number for loop device driver\n");
-	}
-	else
-	{
-		tmp.erase(tmp.find("loop", 4));
-		TWFunc::trim(tmp);
-		major = atoi(tmp.c_str());
-	}
 
 	// create a new loop block device and setup loop
 	if(major && minor && (system_args("mknod \"%s\" b %d %d && losetup \"%s\" \"%s\"", m_boot_dev.c_str(), major, minor, m_boot_dev.c_str(), fakeImg) == 0))
@@ -2883,6 +3009,7 @@ bool MultiROM::fakeBootPartition(const char *fakeImg)
 	else
 	{
 		gui_print("Failed to create loop block device, falling back to normal symlink!\n");
+		system_args("rm \"%s\"", m_boot_dev.c_str());
 		system_args("ln -s \"%s\" \"%s\"", fakeImg, m_boot_dev.c_str());
 	}
 
@@ -2910,11 +3037,9 @@ void MultiROM::restoreBootPartition()
 #ifdef BOARD_BOOTIMAGE_PARTITION_SIZE
 	int minor = BOOTIMG_LOOP_MINOR;  // MINOR = non-existent /dev/block/loopN
 	std::string loob_block_device = "/dev/block/loop" + TWFunc::to_string(BOOTIMG_LOOP_MINOR);
-	if(access(loob_block_device.c_str(), R_OK) == 0)
-	{
-		system_args("losetup -d \"%s\"", m_boot_dev.c_str()); // release loop device if it's there
-		system_args("rm \"%s\"", loob_block_device.c_str());  // delete /dev/block/loopN
-	}
+	system_args("losetup -d \"%s\"", m_boot_dev.c_str());        // release loop device
+	system_args("losetup -d \"%s\"", loob_block_device.c_str()); // release loop device
+	system_args("rm \"%s\"", loob_block_device.c_str());         // delete /dev/block/loopN
 #endif
 	system_args("rm \"%s\"", m_boot_dev.c_str());
 	system_args("mv \"%s\"-orig \"%s\"", m_boot_dev.c_str(), m_boot_dev.c_str());
@@ -2940,42 +3065,36 @@ void MultiROM::failsafeCheckPartition(const char *path)
 	remove(path);
 }
 
-bool MultiROM::calculateMD5(const char *path, unsigned char *md5sum/*len: 16*/)
+std::string MultiROM::calculateMD5(const char *path)
 {
 	FILE *f = fopen(path, "rb");
 	if(!f)
 	{
 		gui_print("Failed to open file %s to calculate MD5 sum!\n", path);
-		return false;
+		return "ERROR";
 	}
 
-	struct MD5Context md5c;
+	twrpMD5 digest;
 	int len;
 	unsigned char buff[1024];
 
-	MD5Init(&md5c);
+	digest.init();
 	while((len = fread(buff, 1, sizeof(buff), f)) > 0)
-		MD5Update(&md5c, buff, len);
+		digest.update(buff, len);
 
-	MD5Final(md5sum ,&md5c);
 	fclose(f);
-	return true;
+	return digest.return_digest_string();
 }
 
 bool MultiROM::compareFiles(const char *path1, const char *path2)
 {
-	unsigned char md5sum1[MD5LENGTH];
-	unsigned char md5sum2[MD5LENGTH];
+	std::string md5sum1 = calculateMD5(path1);
+	std::string md5sum2 = calculateMD5(path2);
 
-	if(!calculateMD5(path1, md5sum1) || !calculateMD5(path2, md5sum2))
+	if(md5sum1 == "ERROR" || md5sum2 == "ERROR")
 		return false;
 
-	int i;
-	for(i = 0; i < MD5LENGTH; ++i)
-		if(md5sum1[i] != md5sum2[i])
-			return false;
-
-	return true;
+	return (md5sum1 == md5sum2);
 }
 
 int MultiROM::getTrampolineVersion()
