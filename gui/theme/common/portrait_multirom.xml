@@ -1613,11 +1613,11 @@ not implemented
 
 			<button style="radio">
 				<conditions>
-					<condition var1="tw_multirom_sailfish_supported" var2="1"/>
+					<condition var1="tw_multirom_halium_supported" var2="1"/>
 					<condition var1="tw_multirom_type" var2="5"/>
 				</conditions>
 				<placement x="%indent%" y="%row6_y%" textplacement="6"/>
-				<text>SailfishOS</text>
+				<text>Halium</text>
 				<image resource="radio_true"/>
 				<actions>
 					<action function="set">tw_multirom_type=5</action>
@@ -1627,11 +1627,11 @@ not implemented
 
 			<button style="radio">
 				<conditions>
-					<condition var1="tw_multirom_sailfish_supported" var2="1"/>
+					<condition var1="tw_multirom_halium_supported" var2="1"/>
 					<condition var1="tw_multirom_type" var2="5" op="!="/>
 				</conditions>
 				<placement x="%indent%" y="%row6_y%" textplacement="6"/>
-				<text>SailfishOS</text>
+				<text>Halium</text>
 				<image resource="radio_false"/>
 				<actions>
 					<action function="set">tw_multirom_type=5</action>
@@ -1773,20 +1773,12 @@ not implemented
 
 			<text style="text_m">
 				<conditions>
+					<condition var1="tw_multirom_halium_supported" var2="1"/>
 					<condition var1="tw_multirom_type" var2="5"/>
-					<condition var1="tw_multirom_sailfish_add_zip" var2="1"/>
+					<condition var1="tw_multirom_halium_add_zip" var2="1"/>
 				</conditions>
 				<placement x="%col1_x_header%" y="%row4_header_y%"/>
-				<text>Select CyanogenMOD ZIP from %tw_storage_display_name%</text>
-			</text>
-
-			<text style="text_m">
-				<conditions>
-					<condition var1="tw_multirom_type" var2="5"/>
-					<condition var1="tw_multirom_sailfish_add_zip" var2="2"/>
-				</conditions>
-				<placement x="%col1_x_header%" y="%row4_header_y%"/>
-				<text>Select SailfishOS from %tw_storage_display_name%</text>
+				<text>Select Halium hybris-boot ZIP from %tw_storage_display_name%</text>
 			</text>
 
 			<template name="sort_options"/>
@@ -1839,27 +1831,15 @@ not implemented
 
 			<fileselector>
 				<conditions>
+					<condition var1="tw_multirom_halium_supported" var2="1"/>
 					<condition var1="tw_multirom_type" var2="5"/>
-					<condition var1="tw_multirom_sailfish_add_zip" var2="1"/>
+					<condition var1="tw_multirom_halium_add_zip" var2="1"/>
 				</conditions>
 				<placement x="%indent%" y="%row3_y%" w="%content_width%" h="%fileselector_install_height%"/>
 				<text>%tw_zip_location%</text>
 				<filter extn=".zip" folders="1" files="1"/>
 				<path name="tw_zip_location" default="/sdcard"/>
-				<data name="tw_sailfish_filename_base"/>
-				<selection name="tw_file"/>
-			</fileselector>
-
-			<fileselector>
-				<conditions>
-					<condition var1="tw_multirom_type" var2="5"/>
-					<condition var1="tw_multirom_sailfish_add_zip" var2="2"/>
-				</conditions>
-				<placement x="%indent%" y="%row3_y%" w="%content_width%" h="%fileselector_install_height%"/>
-				<text>%tw_zip_location%</text>
-				<filter extn=".zip" folders="1" files="1"/>
-				<path name="tw_zip_location" default="/sdcard"/>
-				<data name="tw_sailfish_filename_rootfs"/>
+				<data name="tw_halium_filename"/>
 				<selection name="tw_file"/>
 			</fileselector>
 
@@ -1882,18 +1862,11 @@ not implemented
 
 			<object type="action">
 				<conditions>
-					<condition var1="tw_sailfish_filename_base" op="modified"/>
+					<condition var1="tw_multirom_halium_supported" var2="1"/>
+					<condition var1="tw_halium_filename" op="modified"/>
 					<condition var1="tw_multirom_type" var2="5"/>
 				</conditions>
-				<action function="page">multirom_add_sailfish</action>
-			</object>
-
-			<object type="action">
-				<conditions>
-					<condition var1="tw_sailfish_filename_rootfs" op="modified"/>
-					<condition var1="tw_multirom_type" var2="5"/>
-				</conditions>
-				<action function="page">multirom_add_sailfish</action>
+				<action function="page">multirom_add_halium</action>
 			</object>
 
 			<action>
@@ -1907,7 +1880,7 @@ not implemented
 			</action>
 		</page>
 
-		<page name="multirom_add_sailfish">
+		<page name="multirom_add_halium">
 			<template name="page"/>
 
 			<text style="text_l">
@@ -1917,70 +1890,36 @@ not implemented
 
 			<text style="text_m">
 				<placement x="%col1_x_header%" y="%row4_header_y%"/>
-				<text>Add secondary ROM - SailfishOS</text>
-			</text>
-
-			<text style="text_m_accent">
-				<placement x="%indent%" y="%row2_y%"/>
-				<text>CyanogenMod ZIP file:</text>
-			</text>
-
-			<text style="text_m_fail">
-				<condition var1="tw_sailfish_filename_base" op="!="/>
-				<placement x="%indent%" y="%row3_y%"/>
-				<text>Select both files to install!</text>
+				<text>Add secondary ROM - Halium-based</text>
 			</text>
 
 			<text style="text_m">
-				<condition var1="tw_sailfish_filename_base"/>
-				<placement x="%indent%" y="%row3_y%"/>
-				<text>%tw_sailfish_filename_base%</text>
+				<condition var1="tw_halium_filename" op="!="/>
+				<text>%tw_halium_filename_base%</text>
+			</text>
+
+			<text style="text_m_accent">
+				<placement x="%indent%" y="%row5_y%"/>
+				<text>Halium zip file:</text>
 			</text>
 
 			<button style="main_button_half_height">
 				<placement x="%center_x%" y="%row4_y%"/>
 				<text>Select File</text>
 				<actions>
-					<action function="set">tw_multirom_sailfish_add_zip=1</action>
-					<action function="page">multirom_add_select</action>
-				</actions>
-			</button>
-
-			<text style="text_m_accent">
-				<placement x="%indent%" y="%row8_y%"/>
-				<text>Rootfs ZIP file (sailfishos-*.zip)</text>
-			</text>
-
-			<text style="text_m_fail">
-				<condition var1="tw_sailfish_filename_rootfs" op="!="/>
-				<placement x="%indent%" y="%row9_y%"/>
-				<text>Select both files to install!</text>
-			</text>
-
-			<text style="text_m">
-				<condition var1="tw_sailfish_filename_rootfs"/>
-				<placement x="%indent%" y="%row9_y%"/>
-				<text>%tw_sailfish_filename_rootfs%</text>
-			</text>
-
-			<button style="main_button_half_height">
-				<placement x="%center_x%" y="%row10_y%"/>
-				<text>Select File</text>
-				<actions>
-					<action function="set">tw_multirom_sailfish_add_zip=2</action>
+					<action function="set">tw_multirom_halium_add_zip=1</action>
 					<action function="page">multirom_add_select</action>
 				</actions>
 			</button>
 
 			<button style="main_button_half_height">
 				<conditions>
-					<condition var1="tw_sailfish_filename_base"/>
-					<condition var1="tw_sailfish_filename_rootfs"/>
+					<condition var1="tw_halium_filename"/>
 				</conditions>
 				<placement x="%center_x%" y="%row21a_y%"/>
 				<text>Install</text>
 				<actions>
-					<action function="set">tw_filename=%tw_sailfish_filename_rootfs%</action>
+					<action function="set">tw_filename=%tw_halium_filename%</action>
 					<action function="multirom_add_file_selected" />
 				</actions>
 			</button>
@@ -2050,11 +1989,11 @@ not implemented
 				<actions>
 					<action function="set">tw_back=multirom_add</action>
 					<action function="set">tw_action=multirom_add_rom</action>
-					<action function="set">tw_text1=Install SailfishOS files</action>
-					<action function="set">tw_text2=%tw_sailfish_filename_base%</action>
-					<action function="set">tw_text3=%tw_sailfish_filename_rootfs%</action>
-					<action function="set">tw_action_text1=Installing Sailfish OS..</action>
-					<action function="set">tw_complete_text1=SailfishOS installed</action>
+					<action function="set">tw_text1=Install Halium</action>
+					<action function="set">tw_text2=%tw_halium_filename_base%</action>
+					<action function="set">tw_text3=?</action>
+					<action function="set">tw_action_text1=Installing Halium boot..</action>
+					<action function="set">tw_complete_text1=Halium installed</action>
 					<action function="set">tw_slider_text=Swipe to Confirm</action>
 					<action function="set">tw_show_reboot=1</action>
 					<action function="page">confirm_action</action>

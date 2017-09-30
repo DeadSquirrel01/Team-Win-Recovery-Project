@@ -385,7 +385,7 @@ protected:
 #ifdef TARGET_RECOVERY_IS_MULTIROM
 	int multirom_delete(std::string arg);
 	int multirom_flash_zip(std::string arg);
-	int multirom_flash_zip_sailfish(std::string arg);
+	int multirom_flash_zip_halium(std::string arg);
 	int multirom_inject(std::string arg);
 	int multirom_inject_curr_boot(std::string arg);
 	int multirom_add_rom(std::string arg);

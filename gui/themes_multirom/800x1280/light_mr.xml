@@ -503,13 +503,13 @@
 			</object>
 
 			<object type="button">
-				<condition var1="tw_multirom_is_sailfish" var2="1" />
+				<condition var1="tw_multirom_is_halium" var2="1" />
 				<highlight color="%highlight_color%" />
 				<placement x="%btn_raised_right_x%" y="%row5_3_y%" placement="1" />
 				<font resource="menu" color="%text_button%" />
 				<image resource="btn_raised_mr_flashzip" />
 				<actions>
-					<action function="set">tw_mrom_flash_action=multirom_flash_zip_sailfish</action>
+					<action function="set">tw_mrom_flash_action=multirom_flash_zip_halium</action>
 					<action function="page">multirom_flash_select</action>
 				</actions>
 			</object>
@@ -2292,12 +2292,12 @@
 			<object type="button">
 				<highlight color="%highlight_color%" />
 				<conditions>
-					<condition var1="tw_multirom_sailfish_supported" var2="1" />
+					<condition var1="tw_multirom_halium_supported" var2="1" />
 					<condition var1="tw_multirom_type" var2="5" />
 				</conditions>
 				<placement x="%col1_x%" y="%row3_3_y%" textplacement="6" />
 				<font resource="body2" color="%text%" />
-				<text>Sailfish OS</text>
+				<text>Halium</text>
 				<image resource="radio_true" />
 				<actions>
 					<action function="set">tw_multirom_type=5</action>
@@ -2308,12 +2308,12 @@
 			<object type="button">
 				<highlight color="%highlight_color%" />
 				<conditions>
-					<condition var1="tw_multirom_sailfish_supported" var2="1" />
+					<condition var1="tw_multirom_halium_supported" var2="1" />
 					<condition var1="tw_multirom_type" var2="5" op="!=" />
 				</conditions>
 				<placement x="%col1_x%" y="%row3_3_y%" textplacement="6" />
 				<font resource="body2" color="%text%" />
-				<text>Sailfish OS</text>
+				<text>Halium</text>
 				<image resource="radio_false" />
 				<actions>
 					<action function="set">tw_multirom_type=5</action>
@@ -2399,7 +2399,7 @@
 			</object>
 		</page>
 
-		<page name="multirom_add_sailfish">
+		<page name="multirom_add_halium">
 			<object type="template" name="body" />
 
 			<object type="template" name="ab_ex" />
@@ -2427,7 +2427,15 @@
 			<object type="text" color="%text_actionbar%">
 				<font resource="body1" />
 				<placement x="%col1_x_indent%" y="%row1_2_y%" />
-				<text>Select SailfishOS ZIPs</text>
+				<text>Select Halium hybris-boot zip</text>
+			</object>
+
+
+			<object type="text" color="%text%">
+				<condition var1="tw_halium_filename" op="!=" />
+				<font resource="body1" />
+				<placement x="%col1_x%" y="%row3_3_y%" />
+				<text>not selected</text>
 			</object>
 
 			<object type="image">
@@ -2435,30 +2443,17 @@
 				<image resource="icon_info" />
 			</object>
 
-			<object type="text" color="%text_highlight%">
-				<font resource="body2" />
-				<placement x="%col1_x_indent%" y="%row2_2_y%" />
-				<text>Select both files to install!</text>
-			</object>
-
 			<object type="text" color="%text_dark%">
 				<font resource="caption" />
 				<placement x="%col1_x%" y="%row3_2_y%" />
-				<text>CyanogenMod ZIP file</text>
+				<text>Halium hybris-boot ZIP file</text>
 			</object>
 
 			<object type="text" color="%text%">
-				<condition var1="tw_sailfish_filename_base" op="!=" />
-				<font resource="body1" />
-				<placement x="%col1_x%" y="%row3_3_y%" />
-				<text>not selected</text>
-			</object>
-
-			<object type="text" color="%text%">
-				<condition var1="tw_sailfish_filename_base" />
+				<condition var1="tw_halium_filename_base" />
 				<font resource="body2" />
 				<placement x="%col1_x%" y="%row3_3_y%" />
-				<text>%tw_sailfish_filename_base%</text>
+				<text>%tw_halium_filename%</text>
 			</object>
 
 			<object type="button">
@@ -2467,54 +2462,8 @@
 				<font resource="body1" color="%text_button%" />
 				<image resource="btn_raised_mr_addfile" />
 				<actions>
-					<action function="set">tw_multirom_sailfish_add_zip=1</action>
+					<action function="set">tw_multirom_halium_add_zip=1</action>
 					<action function="page">multirom_add_select</action>
-				</actions>
-			</object>
-
-			<object type="text" color="%text_dark%">
-				<font resource="caption" />
-				<placement x="%col1_x%" y="%row5_2_y%" />
-				<text>Rootfs ZIP file (sailfishos-*.zip)</text>
-			</object>
-
-			<object type="text" color="%text%">
-				<condition var1="tw_sailfish_filename_rootfs" op="!=" />
-				<font resource="body1" />
-				<placement x="%col1_x%" y="%row5_3_y%" />
-				<text>not selected</text>
-			</object>
-
-			<object type="text" color="%text%">
-				<condition var1="tw_sailfish_filename_rootfs" />
-				<font resource="body2" />
-				<placement x="%col1_x%" y="%row5_3_y%" />
-				<text>%tw_sailfish_filename_rootfs%</text>
-			</object>
-
-			<object type="button">
-				<highlight color="%highlight_color%" />
-				<placement x="%btn_raised_right_x%" y="%row6_1_y%" placement="1" />
-				<font resource="body1" color="%text_button%" />
-				<image resource="btn_raised_mr_addfile" />
-				<actions>
-					<action function="set">tw_multirom_sailfish_add_zip=2</action>
-					<action function="page">multirom_add_select</action>
-				</actions>
-			</object>
-
-			<object type="button">
-				<conditions>
-					<condition var1="tw_sailfish_filename_base" />
-					<condition var1="tw_sailfish_filename_rootfs" />
-				</conditions>
-				<highlight color="%highlight_color%" />
-				<placement x="%btn_raised_right_x%" y="%row8_1_y%" placement="1" />
-				<font resource="body1" color="%text_button%" />
-				<image resource="btn_raised_mr_next" />
-				<actions>
-					<action function="set">tw_filename=%tw_sailfish_filename_rootfs%</action>
-					<action function="multirom_add_file_selected" />
 				</actions>
 			</object>
 
@@ -2777,7 +2726,7 @@
 				<conditions>
 					<condition var1="list_font" var2="big" />
 					<condition var1="tw_multirom_type" var2="5" />
-					<condition var1="tw_multirom_sailfish_add_zip" var2="1" />
+					<condition var1="tw_multirom_halium_add_zip" var2="1" />
 				</conditions>
 				<placement x="%col1_x%" y="%row_ab_ex_y%" w="%fileselector_width%" h="%fileselector_install_height%" />
 				<fastscroll rectcolor="%text_highlight%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
@@ -2788,7 +2737,7 @@
 				<font resource="body1" spacing="%fileselector_spacing%" color="%text%" highlightcolor="%highlight%" />
 				<filter extn=".zip" folders="1" files="1" />
 				<path name="tw_zip_location" default="/sdcard" />
-				<data name="tw_sailfish_filename_base" />
+				<data name="tw_halium_filename" />
 				<selection name="tw_file" />
 			</object>
 
@@ -2796,7 +2745,7 @@
 				<conditions>
 					<condition var1="list_font" var2="small" />
 					<condition var1="tw_multirom_type" var2="5" />
-					<condition var1="tw_multirom_sailfish_add_zip" var2="1" />
+					<condition var1="tw_multirom_halium_add_zip" var2="1" />
 				</conditions>
 				<placement x="%col1_x%" y="%row_ab_ex_y%" w="%fileselector_width%" h="%fileselector_install_height%" />
 				<fastscroll rectcolor="%text_highlight%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
@@ -2807,45 +2756,7 @@
 				<font resource="caption" spacing="%fileselector_spacing%" color="%text%" highlightcolor="%highlight%" />
 				<filter extn=".zip" folders="1" files="1" />
 				<path name="tw_zip_location" default="/sdcard" />
-				<data name="tw_sailfish_filename_base" />
-				<selection name="tw_file" />
-			</object>
-
-			<object type="fileselector">
-				<conditions>
-					<condition var1="list_font" var2="big" />
-					<condition var1="tw_multirom_type" var2="5" />
-					<condition var1="tw_multirom_sailfish_add_zip" var2="2" />
-				</conditions>
-				<placement x="%col1_x%" y="%row_ab_ex_y%" w="%fileselector_width%" h="%fileselector_install_height%" />
-				<fastscroll rectcolor="%text_highlight%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
-				<separator color="%linecolor%" height="%fileselector_separatorheight%" />
-				<sort name="tw_gui_sort_order" />
-				<icon folder="folder_icon" file="file_icon" />
-				<background color="%background%" />
-				<font resource="body1" spacing="%fileselector_spacing%" color="%text%" highlightcolor="%highlight%" />
-				<filter extn=".zip" folders="1" files="1" />
-				<path name="tw_zip_location" default="/sdcard" />
-				<data name="tw_sailfish_filename_rootfs" />
-				<selection name="tw_file" />
-			</object>
-
-			<object type="fileselector">
-				<conditions>
-					<condition var1="list_font" var2="small" />
-					<condition var1="tw_multirom_type" var2="5" />
-					<condition var1="tw_multirom_sailfish_add_zip" var2="2" />
-				</conditions>
-				<placement x="%col1_x%" y="%row_ab_ex_y%" w="%fileselector_width%" h="%fileselector_install_height%" />
-				<fastscroll rectcolor="%text_highlight%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
-				<separator color="%linecolor%" height="%fileselector_separatorheight%" />
-				<sort name="tw_gui_sort_order" />
-				<icon folder="folder_icon" file="file_icon" />
-				<background color="%background%" />
-				<font resource="caption" spacing="%fileselector_spacing%" color="%text%" highlightcolor="%highlight%" />
-				<filter extn=".zip" folders="1" files="1" />
-				<path name="tw_zip_location" default="/sdcard" />
-				<data name="tw_sailfish_filename_rootfs" />
+				<data name="tw_halium_filename" />
 				<selection name="tw_file" />
 			</object>
 
@@ -2968,21 +2879,11 @@
 			<object type="text" color="%text_actionbar%">
 				<conditions>
 					<condition var1="tw_multirom_type" var2="5" />
-					<condition var1="tw_multirom_sailfish_add_zip" var2="1" />
+					<condition var1="tw_multirom_halium_add_zip" var2="1" />
 				</conditions>
 				<font resource="body1" />
 				<placement x="%col1_x_indent%" y="%row1_2_y%" />
-				<text>Select CynogenMod Zip</text>
-			</object>
-
-			<object type="text" color="%text_actionbar%">
-				<conditions>
-					<condition var1="tw_multirom_type" var2="5" />
-					<condition var1="tw_multirom_sailfish_add_zip" var2="2" />
-				</conditions>
-				<font resource="body1" />
-				<placement x="%col1_x_indent%" y="%row1_2_y%" />
-				<text>Select SailfishOS Zip</text>
+				<text>Select Halium hybris-boot Zip</text>
 			</object>
 
 			<!--object type="text" color="%text_actionbar%">
@@ -3023,18 +2924,10 @@
 
 			<object type="action">
 				<conditions>
-					<condition var1="tw_sailfish_filename_base" op="modified" />
+					<condition var1="tw_halium_filename" op="modified" />
 					<condition var1="tw_multirom_type" var2="5" />
 				</conditions>
-				<action function="page">multirom_add_sailfish</action>
-			</object>
-
-			<object type="action">
-				<conditions>
-					<condition var1="tw_sailfish_filename_rootfs" op="modified" />
-					<condition var1="tw_multirom_type" var2="5" />
-				</conditions>
-				<action function="page">multirom_add_sailfish</action>
+				<action function="page">multirom_add_halium</action>
 			</object>
 
 			<object type="action">
@@ -3116,11 +3009,10 @@
 				<actions>
 					<action function="set">tw_back=multirom_add</action>
 					<action function="set">tw_action=multirom_add_rom</action>
-					<action function="set">tw_text1=Install SailfishOS files?</action>
-					<action function="set">tw_text2=%tw_sailfish_filename_base%</action>
-					<action function="set">tw_text3=%tw_sailfish_filename_rootfs%</action>
-					<action function="set">tw_action_text1=Installing Sailfish OS...</action>
-					<action function="set">tw_complete_text1=SailfishOS installed</action>
+					<action function="set">tw_text1=Install Halium?</action>
+					<action function="set">tw_text2=%tw_halium_filename%</action>
+					<action function="set">tw_action_text1=Installing Halium boot...</action>
+					<action function="set">tw_complete_text1=Halium installed</action>
 					<action function="set">tw_slider_text=Swipe to Confirm</action>
 					<action function="set">tw_show_reboot=1</action>
 					<action function="page">multirom_add_confirm_action</action>

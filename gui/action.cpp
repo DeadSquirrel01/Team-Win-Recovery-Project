@@ -256,7 +256,7 @@ GUIAction::GUIAction(xml_node<>* node)
 #ifdef TARGET_RECOVERY_IS_MULTIROM
 		ADD_ACTION(multirom_delete);
 		ADD_ACTION(multirom_flash_zip);
-		ADD_ACTION(multirom_flash_zip_sailfish);
+		ADD_ACTION(multirom_flash_zip_halium);
 		ADD_ACTION(multirom_inject);
 		ADD_ACTION(multirom_inject_curr_boot);
 		ADD_ACTION(multirom_add_rom);
@@ -1929,7 +1929,7 @@ int GUIAction::multirom_manage(std::string arg __unused)
 	DataManager::SetValue("tw_multirom_is_android", (M(type) & MASK_ANDROID) != 0);
 	DataManager::SetValue("tw_multirom_is_ubuntu", (M(type) & MASK_UBUNTU) != 0);
 	DataManager::SetValue("tw_multirom_is_touch", (M(type) & MASK_UTOUCH) != 0);
-	DataManager::SetValue("tw_multirom_is_sailfish", (M(type) & MASK_SAILFISH) != 0);
+	DataManager::SetValue("tw_multirom_is_halium", (M(type) & MASK_HALIUM) != 0);
 	if((M(type) & MASK_ANDROID) != 0)
 	{
 		std::string path = MultiROM::getRomsPath() + "/" + name + "/boot.img";
@@ -2043,9 +2043,8 @@ int GUIAction::multirom_add_second(std::string arg __unused)
 		case 1:
 			return gui_changePage("multirom_add_source");
 		case 5:
-			DataManager::SetValue("tw_sailfish_filename_base", "");
-			DataManager::SetValue("tw_sailfish_filename_rootfs", "");
-			return gui_changePage("multirom_add_sailfish");
+			DataManager::SetValue("tw_halium_filename", "");
+			return gui_changePage("multirom_add_halium");
 		default:
 			return gui_changePage("multirom_add_select");
 	}
@@ -2071,10 +2070,10 @@ int GUIAction::multirom_add_file_selected(std::string arg __unused)
 			case 2: // Ubuntu dekstop
 				MultiROM::addBaseFolder("root", UB_DATA_IMG_MINSIZE, UB_DATA_IMG_DEFSIZE);
 				break;
-			case 5: // SailfishOS
-				MultiROM::addBaseFolder("data", SAILFISH_DATA_IMG_MINSIZE, SAILFISH_DATA_IMG_DEFSIZE);
-				MultiROM::addBaseFolder("system", SYS_IMG_MINSIZE, SYS_IMG_DEFSIZE);
-				MultiROM::addBaseFolder("cache", CACHE_IMG_MINSIZE, CACHE_IMG_DEFSIZE);
+			case 5: // Halium
+                                MultiROM::addBaseFolder("data", HALIUM_DATA_IMG_MINSIZE, HALIUM_DATA_IMG_DEFSIZE);
+                               	MultiROM::addBaseFolder("system", SYS_IMG_MINSIZE, SYS_IMG_DEFSIZE);
+                                MultiROM::addBaseFolder("cache", CACHE_IMG_MINSIZE, CACHE_IMG_DEFSIZE);
 				break;
 		}
 
@@ -2262,7 +2261,7 @@ int GUIAction::multirom_flash_zip(std::string arg __unused)
 	return op_status;
 }
 
-int GUIAction::multirom_flash_zip_sailfish(std::string arg __unused)
+int GUIAction::multirom_flash_zip_halium(std::string arg __unused)
 {
 	operation_start("Flashing");
 	int op_status = 0;
@@ -2270,20 +2269,13 @@ int GUIAction::multirom_flash_zip_sailfish(std::string arg __unused)
 	std::string name = DataManager::GetStrValue("tw_multirom_rom_name");
 	std::string root = MultiROM::getRomsPath() + name;
 
-	if(rename((root + "/data/.stowaways/sailfishos/system").c_str(), (root + "/system").c_str()) < 0)
-		gui_print("/system move failed %s", strerror(errno));
-
-
 	if (!MultiROM::flashZip(name, DataManager::GetStrValue("tw_filename")))
 		op_status = 1;
 
-	if(rename((root + "/system").c_str(), (root + "/data/.stowaways/sailfishos/system").c_str()) < 0)
-		gui_print("/system move failed %s", strerror(errno));
-
-	if(!MultiROM::sailfishProcessBoot(root))
+	if(!MultiROM::haliumProcessBoot(root))
 		op_status = 1;
 
-	if(!MultiROM::sailfishProcess(root, name))
+	if(!MultiROM::haliumProcess(root, name))
 		op_status = 1;
 
 	operation_end(op_status);

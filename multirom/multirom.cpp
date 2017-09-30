@@ -380,8 +380,8 @@ void MultiROM::updateSupportedSystems()
 	snprintf(p, sizeof(p), "%s/infos/ubuntu.txt", m_path.c_str());
 	DataManager::SetValue("tw_multirom_ubuntu_supported", (access(p, F_OK) >= 0) ? 1 : 0);
 
-	snprintf(p, sizeof(p), "%s/infos/sailfishos.txt", m_path.c_str());
-	DataManager::SetValue("tw_multirom_sailfish_supported", (access(p, F_OK) >= 0) ? 1 : 0);
+	snprintf(p, sizeof(p), "%s/infos/halium.txt", m_path.c_str());
+	DataManager::SetValue("tw_multirom_halium_supported", (access(p, F_OK) >= 0) ? 1 : 0);
 }
 
 bool MultiROM::installLocNeedsImages(const std::string& loc)
@@ -637,7 +637,7 @@ int MultiROM::getType(std::string name)
 		if (access((path + "data").c_str(), F_OK) >= 0 &&
 			access((path + "rom_info.txt").c_str(), F_OK) >= 0)
 		{
-			return ROM_SAILFISH_INTERNAL;
+			return ROM_HALIUM_INTERNAL;
 		}
 
 		if(access((path + "root").c_str(), F_OK) >= 0)
@@ -2034,7 +2034,7 @@ bool MultiROM::createDirs(std::string name, int type)
 		case ROM_UBUNTU_USB_DIR:
 		case ROM_INSTALLER_INTERNAL:
 		case ROM_INSTALLER_USB_DIR:
-		case ROM_SAILFISH_INTERNAL:
+		case ROM_HALIUM_INTERNAL:
 			if(!createDirsFromBase(base))
 				return false;
 			break;
@@ -2286,12 +2286,12 @@ int MultiROM::getType(int os, std::string loc)
 			break;
 		case 3: // installer
 			return m_installer->getRomType();
-		case 5: // SailfishOS
+		case 5: // Halium
 			if(loc == INTERNAL_MEM_LOC_TXT)
-				return ROM_SAILFISH_INTERNAL;
+				return ROM_HALIUM_INTERNAL;
 			else
 			{
-				gui_print("Installation of SailfishOS to external memory is not supported at this time.\n");
+				gui_print("Installation of halium to external memory is not supported at this time.\n");
 				return ROM_UNKNOWN;
 			}
 			break;
@@ -2437,32 +2437,26 @@ bool MultiROM::addROM(std::string zip, int os, std::string loc)
 				 umountBaseImages(base);
 			break;
 		}
-		case ROM_SAILFISH_INTERNAL:
+		case ROM_HALIUM_INTERNAL:
 		{
-			std::string base_zip = DataManager::GetStrValue("tw_sailfish_filename_base");
-			std::string rootfs_zip = DataManager::GetStrValue("tw_sailfish_filename_rootfs");
+			std::string halium_zip = DataManager::GetStrValue("tw_halium_filename");
 
 			gui_print("  \n");
-			gui_print("Flashing base zip...\n");
-			if(!flashZip(name, base_zip))
+			gui_print("Flashing halium zip...\n");
+			gui_print(" \n");
+			gui_print("Only Halium hybris-boot will be considered. Other files will be flashed but ignored!\n");
+			gui_print("So, it is suggested to create a zip that flashes only Halium hybris-boot, to save space\n");
+
+			if(!flashZip(name, halium_zip));
+
+			if(!haliumProcessBoot(root))
 				break;
 
-			gui_print("  \n");
-			gui_print("Flashing rootfs zip...\n");
-
-			system("ln -sf /sbin/gnutar /sbin/tar");
-			bool flash_res = flashZip(name, rootfs_zip);
-			system("ln -sf /sbin/busybox /sbin/tar");
-			if(!flash_res)
-				break;
-
-			if(!sailfishProcessBoot(root))
-				break;
-
-			if(!sailfishProcess(root, name))
+			if(!haliumProcess(root, name))
 				break;
 
 			res = true;
+			gui_print("Now don't forget to push rootfs and system images in /data using the script in halium-scripts on halium github page");
 			break;
 		}
 	}
@@ -2857,14 +2851,14 @@ bool MultiROM::ubuntuTouchProcess(const std::string& root, const std::string& na
 	return true;
 }
 
-bool MultiROM::sailfishProcessBoot(const std::string& root)
+bool MultiROM::haliumProcessBoot(const std::string& root)
 {
 	int rd_cmpr;
 	struct bootimg img;
 	bool res = false;
 	int ret;
 
-	gui_print("Processing boot.img for SailfishOS\n");
+	gui_print("Processing hybris-boot.img for Halium\n");
 	system("rm /tmp/boot.img");
 	system_args("cp %s/boot.img /tmp/boot.img", root.c_str());
 
@@ -2904,28 +2898,14 @@ fail_inject:
 	return res;
 }
 
-bool MultiROM::sailfishProcess(const std::string& root, const std::string& name)
+bool MultiROM::haliumProcess(const std::string& root, const std::string& name)
 {
 	char buff[256];
 
 	// rom_info.txt
-	if(system_args("cp %s/infos/sailfishos.txt \"%s/rom_info.txt\"", m_path.c_str(), root.c_str()) != 0)
+	if(system_args("cp %s/infos/halium.txt \"%s/rom_info.txt\"", m_path.c_str(), root.c_str()) != 0)
 	{
 		gui_print("Failed to copy rom_info.txt!\n");
-		return false;
-	}
-
-	// Disable /system mounting
-	snprintf(buff, sizeof(buff), "%s/data/.stowaways/sailfishos/etc/systemd/system/local-fs.target.wants/system.mount", root.c_str());
-	remove(buff);
-	snprintf(buff, sizeof(buff), "%s/data/.stowaways/sailfishos/sailfishos/lib/systemd/system/system.mount", root.c_str());
-	remove(buff);
-
-	// Move /system to the rootfs
-	snprintf(buff, sizeof(buff), "%s/system", root.c_str());
-	if(access(buff, F_OK) >= 0 && system_args("mv \"%s/system\" \"%s/data/.stowaways/sailfishos/\"", root.c_str(), root.c_str()) != 0)
-	{
-		gui_print("Failed to move the /system to rootfs\n");
 		return false;
 	}
 	return true;
